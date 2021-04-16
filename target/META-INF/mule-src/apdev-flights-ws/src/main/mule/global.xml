@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:wsc="http://www.mulesoft.org/schema/mule/wsc" xmlns:american-flights-api="http://www.mulesoft.org/schema/mule/american-flights-api" xmlns:american-flight-api="http://www.mulesoft.org/schema/mule/american-flight-api" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/american-flight-api http://www.mulesoft.org/schema/mule/american-flight-api/current/mule-american-flight-api.xsd
+http://www.mulesoft.org/schema/mule/american-flights-api http://www.mulesoft.org/schema/mule/american-flights-api/current/mule-american-flights-api.xsd
+http://www.mulesoft.org/schema/mule/wsc http://www.mulesoft.org/schema/mule/wsc/current/mule-wsc.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd">
+	<configuration-properties doc:name="Configuration properties" doc:id="32921ebb-ef5b-4f5d-8412-7c182f3dece7" file="config.yaml" />
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="3c74646b-5d0b-421a-bf27-7c9b6bcad3a5" >
+		<http:listener-connection host="0.0.0.0" port="${http.port}" />
+	</http:listener-config>
+	<american-flights-api:config name="American_Flights_API_Config" doc:name="American Flights API Config" doc:id="f1e0fdcb-4467-47ec-a175-7ae7f1948f5a" property_host="${american.host}" property_port="${american.port}" property_protocol="${american.protocol}" property_basePath="${american.basepath}" />
+	<http:request-config name="HTTP_Request_config_training" doc:name="HTTP Request configuration" doc:id="2ad12d32-0913-4ce6-9d2b-6a26804f1f75" basePath="${training.basepath}" >
+		<http:request-connection host="${training.host}" port="${training.port}" />
+	</http:request-config>
+	<wsc:config name="Delta_Web_Service_Consumer_Config" doc:name="Web Service Consumer Config" doc:id="d3226543-3848-4e92-8751-a054566c8239" >
+		<wsc:connection wsdlLocation="${delta.wsdl}" service="${delta.service}" port="${delta.port}" />
+	</wsc:config>
+	<configuration doc:name="Configuration" doc:id="270476d0-48bb-407a-867f-a032190db857" defaultErrorHandler-ref="globalError_Handler"/>
+	<file:config name="File_Config" doc:name="File Config" doc:id="82ad7799-ad39-408a-82de-4202b39ec699" >
+		<file:connection workingDir="C:\Users\sibusiso\Desktop\M3\APDevFundamentals4.3_studentFiles_SP_13jul2020\resources" />
+	</file:config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="871c3ab5-ec36-49e3-869c-a8538905058c" >
+		<db:my-sql-connection host="${db.host}" port="${db.port}" user="${db.user}" password="mule" database="${db.database}" />
+	</db:config>
+	<jms:config name="JMS_Config" doc:name="JMS Config" doc:id="e6336c5f-46a7-48e6-a64c-59bed623b145" >
+		<jms:active-mq-connection >
+			<jms:factory-configuration />
+		</jms:active-mq-connection>
+	</jms:config>
+	<error-handler name="globalError_Handler" doc:id="0cd4023c-52dc-4b06-a5a9-de594d407bb2" >
+	
+	
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="1c37b125-a35a-4a9b-afa3-7c227a04a27e" type="EXPRESSION">
+				<ee:transform doc:name="error.description" doc:id="c6a99b06-10c3-40b4-b5e7-e5e9092c8996" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<set-variable value="400" doc:name="httpStatus" doc:id="95dce604-840a-432b-99a3-04e31516d887" variableName="httpStatus"/>
+			</on-error-continue>			
+	
+		<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="d97af032-5011-4b91-a072-2e20458577a8" type="WSC:CONNECTIVITY,WSC:INVALID_WSDL">
+			<ee:transform doc:name="Data unavailable" doc:id="3c43c4ba-6e17-47aa-8aff-b341dc0210f6" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Data unavailable. Try again later." ++ error.description as String
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<set-variable value="500" doc:name="httpStatus" doc:id="b4fccc71-a500-43f8-8c97-558955afab25" variableName="httpStatus"/>
+		</on-error-continue>
+		<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="0799d847-e523-4f6f-9ebc-fa432bfdadd9" type="ANY">
+			<ee:transform doc:name="error.description" doc:id="0f08a095-977d-4b3e-b99f-b68c407b6652">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": error.description
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			<set-variable value="500" doc:name="Copy_of_httpStatus" doc:id="d28b3adc-9f79-423c-bd2e-378e331a7711" variableName="httpStatus" />
+		</on-error-continue>
+	</error-handler>
+</mule>
